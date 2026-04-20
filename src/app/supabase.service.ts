@@ -5,7 +5,7 @@ import { environment } from '../environments/environment';
 export interface Protocol { id: string; name: string; }
 export interface Patient { id: string; protocol_id: string; initials: string; coordinator: string; status: string; }
 export interface Visit { id: string; patient_id: string; label: string; type: string; estimated_date: string; real_date?: string; status: string; notes?: string; sort_order: number; }
-export interface ChecklistItem { id: string; visit_id: string; label: string; deadline: string; done: boolean; }
+export interface ChecklistItem { id: string; visit_id: string; label: string; deadline: string; done: boolean; plazo_horas?: number; }
 
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {

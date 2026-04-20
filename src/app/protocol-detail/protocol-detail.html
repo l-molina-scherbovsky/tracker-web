@@ -1,97 +1,309 @@
-<div class="min-h-screen bg-slate-50">
-  <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-3">
-    <a routerLink="/" class="text-slate-400 hover:text-slate-600 transition-colors">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+@if (loading()) {
+
+  <!-- Skeleton loader -->
+  <div class="page-header">
+    <a routerLink="/protocolos" class="back-btn">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
       </svg>
     </a>
-    <div>
-      <h1 class="text-lg font-bold text-slate-800">Protocolo {{ protocolId }}</h1>
-      <p class="text-xs text-slate-400">{{ filtered.length }} pacientes</p>
+    <div class="page-header-text">
+      <div class="skeleton" style="width:180px; height:20px; margin-bottom:6px;"></div>
+      <div class="skeleton" style="width:90px; height:14px;"></div>
     </div>
-  </header>
+  </div>
 
-  @if (loading) {
-    <div class="flex items-center justify-center h-64">
-      <p class="text-slate-400 text-sm">Cargando...</p>
-    </div>
-  } @else {
-    <main class="max-w-5xl mx-auto px-4 py-6 space-y-4">
-
-      <!-- Filtro coordinadores -->
-      <div class="flex gap-2 flex-wrap">
-        @for (coord of coordinators; track coord) {
-          <button
-            (click)="filterBy(coord)"
-            [class]="selectedCoordinator === coord
-              ? 'px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-white'
-              : 'px-3 py-1 rounded-full text-xs font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'">
-            {{ coord }}
-          </button>
-        }
-      </div>
-
-      <!-- Leyenda -->
-      <div class="bg-white rounded-xl border border-slate-200 p-4">
-        <p class="text-xs font-semibold text-slate-500 mb-3">Estados de visita</p>
-        <div class="flex flex-wrap gap-3">
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block rounded-lg px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">V1</span>
-            <span class="text-xs text-slate-500">Futura</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block rounded-lg px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">V1</span>
-            <span class="text-xs text-slate-500">Próxima</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block rounded-lg px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 border border-green-300">V1 ●</span>
-            <span class="text-xs text-slate-500">Realizada</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block rounded-lg px-2 py-0.5 text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300">V1</span>
-            <span class="text-xs text-slate-500">Ítems vencidos</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="inline-block rounded-lg px-2 py-0.5 text-xs font-semibold bg-green-500 text-white border border-green-600">V1</span>
-            <span class="text-xs text-slate-500">Completa</span>
-          </div>
+  <div class="panel">
+    @for (i of [1,2,3,4,5]; track i) {
+      <div class="patient-row" style="gap:14px; padding:13px 16px;">
+        <div style="width:90px; flex-shrink:0;">
+          <div class="skeleton" style="width:72px; height:13px; margin-bottom:5px;"></div>
+          <div class="skeleton" style="width:44px; height:11px;"></div>
         </div>
-      </div>
-
-      <!-- Lista de pacientes -->
-      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="divide-y divide-slate-100">
-          @for (row of filtered; track row.patient.id) {
-            <a [routerLink]="['/protocol', protocolId, 'patient', row.patient.id]"
-               class="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors">
-              <div class="w-24 shrink-0">
-                <p class="text-sm font-bold text-slate-800">{{ row.patient.id }}</p>
-                <p class="text-xs text-slate-400">{{ row.patient.initials }}</p>
-              </div>
-              <div class="w-28 shrink-0">
-                @if (row.patient.status === 'Activo') {
-                  <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Activo</span>
-                } @else {
-                  <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Falla selección</span>
-                }
-                <p class="text-xs text-slate-400 mt-0.5">{{ row.patient.coordinator }}</p>
-              </div>
-              <div class="flex gap-1.5 flex-wrap flex-1">
-                @for (visit of row.visits; track visit.id) {
-                  <span [class]="chipClass(visit.status)">
-                    <span>{{ visit.label }}{{ visit.status === 'realizada' ? ' ●' : '' }}</span>
-                    <span class="text-[10px] font-normal opacity-80">{{ visit.real_date ?? visit.estimated_date }}</span>
-                  </span>
-                }
-              </div>
-              <svg class="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-              </svg>
-            </a>
+        <div style="width:110px; flex-shrink:0;">
+          <div class="skeleton" style="width:54px; height:18px; border-radius:99px; margin-bottom:5px;"></div>
+          <div class="skeleton" style="width:80px; height:11px;"></div>
+        </div>
+        <div style="display:flex; gap:5px; flex:1;">
+          @for (j of [1,2,3]; track j) {
+            <div class="skeleton" style="width:44px; height:36px; border-radius:5px;"></div>
           }
         </div>
       </div>
+    }
+  </div>
 
-    </main>
+} @else if (error()) {
+
+  <div class="page-header">
+    <a routerLink="/protocolos" class="back-btn">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <div class="page-header-text">
+      <h1>Protocolo {{ protocolId }}</h1>
+    </div>
+  </div>
+
+  <div class="error-state">
+    <div class="error-title">Error al cargar pacientes</div>
+    <div class="error-message">{{ error() }}</div>
+  </div>
+
+} @else {
+
+  <!-- Encabezado de página -->
+  <div class="page-header">
+    <a routerLink="/protocolos" class="back-btn">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <div class="page-header-text">
+      <h1>Protocolo {{ protocolId }}</h1>
+      <p class="subtitle">{{ filtered.length }} paciente{{ filtered.length !== 1 ? 's' : '' }}</p>
+    </div>
+  </div>
+
+  <!-- Filtro coordinadores -->
+  <div class="coord-filters">
+    @for (coord of coordinators; track coord) {
+      <button class="coord-btn" [class.active]="selectedCoordinator === coord" (click)="filterBy(coord)">
+        {{ coord }}
+      </button>
+    }
+  </div>
+
+  <!-- Leyenda de estados -->
+  <div class="panel">
+    <div class="legend">
+      <div class="legend-item">
+        <span class="visit-chip futura">
+          <span class="chip-label">V1</span>
+          <span class="chip-date">01/01/25</span>
+        </span>
+        <span class="legend-label">Futura</span>
+      </div>
+      <div class="legend-item">
+        <span class="visit-chip proxima">
+          <span class="chip-label">V1</span>
+          <span class="chip-date">01/01/25</span>
+        </span>
+        <span class="legend-label">Próxima</span>
+      </div>
+      <div class="legend-item">
+        <span class="visit-chip realizada">
+          <span class="chip-dot-realizada"></span>
+          <span class="chip-label">V1</span>
+          <span class="chip-date">01/01/25</span>
+        </span>
+        <span class="legend-label">Realizada</span>
+      </div>
+      <div class="legend-item">
+        <span class="visit-chip vencida">
+          <span class="chip-label">V1</span>
+          <span class="chip-date">01/01/25</span>
+        </span>
+        <span class="legend-label">Ítems vencidos</span>
+      </div>
+      <div class="legend-item">
+        <span class="visit-chip completa">
+          <span class="chip-label">V1</span>
+          <span class="chip-date">01/01/25</span>
+        </span>
+        <span class="legend-label">Completa</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sin pacientes -->
+  @if (filtered.length === 0) {
+    <div class="panel" style="padding:32px 20px; text-align:center; color:#9ca3af; font-size:13px;">
+      @if (rows.length === 0) {
+        No se encontraron pacientes para el protocolo <strong style="color:#374151;">{{ protocolId }}</strong>.
+      } @else {
+        No hay pacientes para el coordinador seleccionado.
+      }
+    </div>
   }
-</div>
+
+  <!-- Lista de pacientes -->
+  @if (filtered.length > 0) {
+    <div class="panel">
+      @for (row of filtered; track row.patient.id) {
+
+        <div class="patient-row" [class.is-expanded]="row.expanded"
+             style="flex-direction:column; align-items:stretch; padding:0; cursor:default;">
+
+          <!-- Fila clickeable -->
+          <div class="patient-row-header"
+               style="display:flex; align-items:center; gap:14px; padding:11px 16px;"
+               (click)="togglePatient(row)">
+
+            <div class="patient-id-col">
+              <span class="patient-id">{{ row.patient.id }}</span>
+              <span class="patient-initials">{{ row.patient.initials }}</span>
+            </div>
+
+            <div class="patient-status-col">
+              <span class="status-badge"
+                [class.activo]="row.patient.status === 'Activo'"
+                [class.falla]="row.patient.status !== 'Activo'">
+                {{ row.patient.status === 'Activo' ? 'Activo' : 'Falla' }}
+              </span>
+              <div class="patient-coord">{{ row.patient.coordinator }}</div>
+            </div>
+
+            <div class="patient-chips-col">
+              @for (visit of row.visits; track visit.id) {
+                <span class="visit-chip"
+                  [class.futura]="displayStatus(visit) === 'futura'"
+                  [class.proxima]="displayStatus(visit) === 'proxima'"
+                  [class.realizada]="displayStatus(visit) === 'realizada'"
+                  [class.vencida]="displayStatus(visit) === 'vencida'"
+                  [class.completa]="displayStatus(visit) === 'completa'"
+                  style="cursor:default">
+                  @if (displayStatus(visit) === 'realizada') {
+                    <span class="chip-dot-realizada"></span>
+                  }
+                  <span class="chip-label">{{ visit.label }}</span>
+                  <span class="chip-date">{{ fmtDate(visit.real_date ?? visit.estimated_date) }}</span>
+                </span>
+              }
+            </div>
+
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                 class="row-arrow"
+                 [style.transform]="row.expanded ? 'rotate(90deg)' : 'none'"
+                 style="transition:transform 0.2s; flex-shrink:0">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+
+          <!-- Panel inline expandido — dos columnas -->
+          @if (row.expanded) {
+            <div class="patient-inline-layout" (click)="$event.stopPropagation()">
+
+              <!-- Columna izquierda: lista de visitas -->
+              <div class="patient-inline-left">
+                <div class="inline-col-title">Visitas del protocolo</div>
+                @for (visit of row.visits; track visit.id) {
+                  <div class="inline-visit-row"
+                       [class.selected]="row.selectedVisit?.id === visit.id"
+                       (click)="selectVisit(row, visit)">
+                    <span class="inline-visit-id">{{ visit.label }}</span>
+                    <span class="inline-visit-date">{{ fmtDate(visit.real_date ?? visit.estimated_date) }}</span>
+                    <span class="inline-visit-badge"
+                      [class.badge-futura]="displayStatus(visit) === 'futura'"
+                      [class.badge-proxima]="displayStatus(visit) === 'proxima'"
+                      [class.badge-realizada]="displayStatus(visit) === 'realizada'"
+                      [class.badge-vencida]="displayStatus(visit) === 'vencida'"
+                      [class.badge-completa]="displayStatus(visit) === 'completa'">
+                      {{ visitBadgeLabel(visit) }}
+                    </span>
+                  </div>
+                }
+              </div>
+
+              <!-- Columna derecha: checklist de la visita seleccionada -->
+              <div class="patient-inline-right">
+
+                @if (row.loadingVisit) {
+                  <div class="inline-col-title">Checklist</div>
+                  <div style="padding:16px;">
+                    <div class="skeleton" style="width:70%; height:12px; margin-bottom:10px;"></div>
+                    <div class="skeleton" style="width:55%; height:12px; margin-bottom:10px;"></div>
+                    <div class="skeleton" style="width:80%; height:12px;"></div>
+                  </div>
+
+                } @else if (row.selectedVisit) {
+
+                  <div class="inline-col-title">
+                    Checklist&nbsp;·&nbsp;{{ row.selectedVisit.label }}&nbsp;·&nbsp;{{ fmtDate(row.selectedVisit.real_date ?? row.selectedVisit.estimated_date) }}
+                  </div>
+
+                  <!-- Strip de fechas -->
+                  <div class="visit-date-strip">
+                    <div class="visit-date-strip-item">
+                      <span class="visit-date-strip-label">Estimada</span>
+                      <span class="visit-date-strip-value">{{ fmtDate(row.selectedVisit.estimated_date) }}</span>
+                    </div>
+                    <div class="visit-date-strip-item">
+                      <span class="visit-date-strip-label">Realizada</span>
+                      @if (row.selectedVisit.real_date) {
+                        <span class="visit-date-strip-value visit-date-real">{{ fmtDate(row.selectedVisit.real_date) }}</span>
+                      } @else {
+                        <span class="visit-date-strip-value visit-date-pending">Sin realizar</span>
+                      }
+                    </div>
+                    <div class="visit-date-strip-item">
+                      <span class="visit-date-strip-label">Ventana</span>
+                      @if (row.selectedVisit.real_date) {
+                        <span class="visit-date-strip-value">{{ fmtDate(row.selectedVisit.real_date) }}&nbsp;→&nbsp;{{ visitWindowEnd(row.selectedVisit, row.checklist) }}</span>
+                      } @else {
+                        <span class="visit-date-strip-value visit-date-pending">—</span>
+                      }
+                    </div>
+                  </div>
+
+                  @if (row.checklist.length > 0) {
+                    @for (group of groupedChecklist(row.checklist); track group.label) {
+                      <div class="checklist-section">
+                        <div class="checklist-group-title">{{ group.label }}</div>
+                        <ul style="margin:0; padding:0; list-style:none">
+                          @for (item of group.items; track item.id) {
+                            <li class="checklist-item" (click)="toggleItem(item, row)">
+                              <span class="check-square" [class.done]="item.done">
+                                @if (item.done) {
+                                  <svg width="10" height="10" fill="none" stroke="white" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                  </svg>
+                                }
+                              </span>
+                              <span class="inline-check-label" [class.done]="item.done">{{ item.label }}</span>
+                            </li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  } @else {
+                    <div class="checklist-section" style="color:#9ca3af; font-size:12px; font-style:italic">
+                      Sin checklist para esta visita.
+                    </div>
+                  }
+
+                  <!-- Aclaraciones -->
+                  <div class="notes-section">
+                    <div class="notes-title">Aclaraciones</div>
+                    <textarea
+                      [(ngModel)]="row.noteText"
+                      rows="3"
+                      placeholder="Observaciones sobre esta visita..."
+                      class="notes-textarea">
+                    </textarea>
+                    <button
+                      (click)="saveNote(row)"
+                      [disabled]="row.savingNote"
+                      class="notes-save-btn">
+                      {{ row.savingNote ? 'Guardando...' : 'Guardar' }}
+                    </button>
+                  </div>
+
+                } @else {
+                  <div class="inline-col-title">Checklist</div>
+                  <div style="padding:28px 16px; text-align:center; color:#d1d5db; font-size:12px;">
+                    Seleccioná una visita
+                  </div>
+                }
+
+              </div>
+            </div>
+          }
+
+        </div>
+      }
+    </div>
+  }
+
+}

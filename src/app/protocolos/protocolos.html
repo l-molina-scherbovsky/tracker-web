@@ -1,0 +1,51 @@
+@if (loading()) {
+  <div class="loading-state">Cargando...</div>
+
+} @else if (error()) {
+  <div class="error-state">
+    <div class="error-title">Error al cargar protocolos</div>
+    <div class="error-message">{{ error() }}</div>
+  </div>
+
+} @else {
+
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1>Protocolos</h1>
+      <p class="subtitle">{{ cards().length }} protocolos</p>
+    </div>
+  </div>
+
+  <div class="protocols-grid">
+    @for (card of cards(); track card.protocol.id) {
+      <a [routerLink]="['/protocol', card.protocol.id]" class="protocol-card">
+
+        <div class="protocol-card-header">
+          <span class="protocol-card-name">{{ card.protocol.name || card.protocol.id }}</span>
+          <span class="status-badge"
+            [class.activo]="card.status !== 'Cerrado'"
+            [class.falla]="card.status === 'Cerrado'">
+            {{ card.status }}
+          </span>
+        </div>
+
+        <div class="protocol-card-stats">
+          <div class="protocol-card-stat">
+            <span class="protocol-card-stat-value">{{ card.activePatients }}</span>
+            <span class="protocol-card-stat-label">Pacientes activos</span>
+          </div>
+          <div class="protocol-card-stat">
+            <span class="protocol-card-stat-value">{{ card.totalPatients }}</span>
+            <span class="protocol-card-stat-label">Total pacientes</span>
+          </div>
+          <div class="protocol-card-stat">
+            <span class="protocol-card-stat-value">{{ card.coordinators }}</span>
+            <span class="protocol-card-stat-label">Coordinador{{ card.coordinators !== 1 ? 'es' : '' }}</span>
+          </div>
+        </div>
+
+      </a>
+    }
+  </div>
+
+}

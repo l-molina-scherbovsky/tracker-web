@@ -65,6 +65,15 @@ export class PatientDetail implements OnInit {
     return Object.values(groups).filter(g => g.items.length > 0);
   }
 
+  fmtDate(d: string | null | undefined): string {
+    if (!d) return '—';
+    if (d.length >= 10 && d[4] === '-') {
+      const [y, m, day] = d.split('-');
+      return `${day}/${m}/${y.slice(2)}`;
+    }
+    return d;
+  }
+
   chipClass(status: string): string {
     const base = 'inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 text-xs font-semibold min-w-[44px] cursor-pointer border ';
     switch (status) {

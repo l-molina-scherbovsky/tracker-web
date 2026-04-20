@@ -1,96 +1,121 @@
-<div class="min-h-screen bg-slate-50">
-  <!-- Header -->
-  <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-    <div>
-      <h1 class="text-lg font-bold text-slate-800">Fundación Scherbovsky</h1>
-      <p class="text-xs text-slate-400">Sistema de seguimiento de visitas clínicas</p>
-    </div>
-    <span class="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full">Ana Torres</span>
-  </header>
+@if (loading()) {
+  <div class="loading-state">Cargando...</div>
 
-  @if (loading()) {
-    <div class="flex items-center justify-center h-64">
-      <p class="text-slate-400 text-sm">Cargando...</p>
-    </div>
-  } @else if (error()) {
-    <div class="max-w-xl mx-auto mt-10 bg-red-50 border border-red-200 rounded-xl p-5">
-      <p class="text-sm font-semibold text-red-700 mb-1">Error al conectar con Supabase</p>
-      <p class="text-xs text-red-600 font-mono break-all">{{ error() }}</p>
-    </div>
-  } @else {
-    <main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+} @else if (error()) {
+  <div class="error-state">
+    <p class="error-title">Error al conectar con Supabase</p>
+    <p class="error-message">{{ error() }}</p>
+  </div>
 
-      <!-- Métricas -->
-      <section class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
-          <div class="text-3xl font-bold text-slate-800">{{ protocols().length }}</div>
-          <div class="text-xs text-slate-500 mt-1">Protocolos activos</div>
-        </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
-          <div class="text-3xl font-bold text-slate-800">{{ totalPatients() }}</div>
-          <div class="text-xs text-slate-500 mt-1">Pacientes activos</div>
-        </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
-          <div class="text-3xl font-bold text-yellow-500">{{ pendingLabs() }}</div>
-          <div class="text-xs text-slate-500 mt-1">Labs pendientes</div>
-        </div>
-        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
-          <div class="text-3xl font-bold text-blue-500">{{ upcomingVisits() }}</div>
-          <div class="text-xs text-slate-500 mt-1">Visitas próximas</div>
-        </div>
-      </section>
+} @else {
 
-      <!-- Alertas -->
-      <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="px-5 py-3 border-b border-slate-100 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-red-400"></span>
-          <h2 class="text-sm font-semibold text-slate-700">Alertas que requieren acción</h2>
+  <!-- Métricas -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-number">{{ protocols().length }}</div>
+      <div class="metric-label">Protocolos activos</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-number">{{ totalPatients() }}</div>
+      <div class="metric-label">Pacientes activos</div>
+    </div>
+    <div class="metric-card labs">
+      <div class="metric-number">{{ pendingLabs() }}</div>
+      <div class="metric-label">Labs vencidos</div>
+    </div>
+    <div class="metric-card ventanas">
+      <div class="metric-number">{{ upcomingVisits() }}</div>
+      <div class="metric-label">Ventanas por vencer</div>
+    </div>
+  </div>
+
+  <!-- Panel de alertas -->
+  <div class="alert-panel">
+    <div class="alert-panel-header" (click)="alertsCollapsed = !alertsCollapsed">
+      <div class="alert-panel-header-left">
+        <span class="alert-header-dot"></span>
+        <span class="alert-header-title">Alertas que requieren acción</span>
+        <span class="alert-header-count">{{ alerts().length }}</span>
+      </div>
+      <span class="alert-chevron" [class.collapsed]="alertsCollapsed">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </span>
+    </div>
+    @if (!alertsCollapsed) {
+      <div class="alert-body">
+        @for (alert of alerts(); track alert.id) {
+          <div class="alert-row">
+            <span class="alert-dot"
+              [class.vencido]="alert.type === 'vencido'"
+              [class.proximo]="alert.type !== 'vencido'">
+            </span>
+            <span class="alert-id">{{ alert.protocol }}</span>
+            <span class="alert-message">{{ alert.message }}</span>
+            <span class="alert-badge"
+              [class.vencido]="alert.type === 'vencido'"
+              [class.proximo]="alert.type !== 'vencido'">
+              {{ alert.type === 'vencido' ? 'Vencido' : 'Próximo' }}
+            </span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Visitas de hoy -->
+  <div class="panel">
+    <div class="panel-header" style="display:flex; align-items:center; justify-content:space-between;">
+      <span class="panel-title">Visitas de hoy</span>
+      <span style="font-size:11px; color:#9ca3af; font-weight:500;">{{ todayLabel }}</span>
+    </div>
+
+    @if (todayGroups().length === 0) {
+      <div style="padding:32px 16px; text-align:center; color:#9ca3af; font-size:13px;">
+        No tenés visitas programadas para hoy
+      </div>
+    } @else {
+      @for (group of todayGroups(); track group.protocolId) {
+
+        <!-- Subheader de protocolo -->
+        <div class="today-protocol-header">
+          {{ group.protocolName }}
         </div>
-        <ul class="divide-y divide-slate-100">
-          @for (alert of alerts(); track alert.id) {
-            <li class="flex items-center gap-3 px-5 py-3">
-              @if (alert.type === 'vencido') {
-                <span class="w-2 h-2 rounded-full bg-yellow-400 shrink-0"></span>
-              } @else {
-                <span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>
+
+        <!-- Filas de visita -->
+        @for (row of group.rows; track row.visit.id) {
+          <div class="today-visit-row">
+
+            <span class="today-patient-id">{{ row.patient.id }}</span>
+
+            <span class="visit-chip"
+              [class.futura]="row.visit.status === 'futura'"
+              [class.proxima]="row.visit.status === 'proxima'"
+              [class.realizada]="row.visit.status === 'realizada'"
+              [class.vencida]="row.visit.status === 'vencida'"
+              [class.completa]="row.visit.status === 'completa'"
+              style="cursor:default; flex-shrink:0;">
+              @if (row.visit.status === 'realizada') {
+                <span class="chip-dot-realizada"></span>
               }
-              <div class="flex-1 min-w-0">
-                <p class="text-sm text-slate-700 truncate">{{ alert.message }}</p>
-                <p class="text-xs text-slate-400">{{ alert.protocol }} · {{ alert.coordinator }}</p>
-              </div>
-              @if (alert.type === 'vencido') {
-                <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full shrink-0">Vencido</span>
-              } @else {
-                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full shrink-0">Próximo</span>
-              }
-            </li>
-          }
-        </ul>
-      </section>
+              <span class="chip-label">{{ row.visit.label }}</span>
+              <span class="chip-date">{{ fmtDate(row.visit.estimated_date) }}</span>
+            </span>
 
-      <!-- Protocolos -->
-      <section class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div class="px-5 py-3 border-b border-slate-100">
-          <h2 class="text-sm font-semibold text-slate-700">Protocolos</h2>
-        </div>
-        <ul class="divide-y divide-slate-100">
-          @for (summary of protocols(); track summary.protocol.id) {
-            <li>
-              <a [routerLink]="['/protocol', summary.protocol.id]"
-                 class="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors">
-                <div>
-                  <p class="text-sm font-semibold text-slate-800">{{ summary.protocol.name }}</p>
-                  <p class="text-xs text-slate-400">{{ summary.activePatients }} pacientes activos</p>
-                </div>
-                <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                </svg>
-              </a>
-            </li>
-          }
-        </ul>
-      </section>
+            <span class="today-visit-status">{{ statusLabel(row.visit.status) }}</span>
 
-    </main>
-  }
-</div>
+            <span style="flex:1;"></span>
+
+            <a [routerLink]="['/protocol', row.patient.protocol_id, 'patient', row.patient.id]"
+               class="ver-btn">
+              Ver
+            </a>
+          </div>
+        }
+
+      }
+    }
+  </div>
+
+}
