@@ -29,14 +29,14 @@
       </a>
 
       <!-- Sub-ítems de protocolos -->
-      @for (p of protocols; track p.id) {
+      @for (p of protocols(); track p.id) {
         <a [routerLink]="['/protocol', p.id]"
            routerLinkActive="active"
            class="sidebar-sub-item">
           {{ p.id }}
         </a>
       }
-      @if (protocols.length > 0) {
+      @if (protocols().length > 0) {
         <a routerLink="/protocolos" class="sidebar-sub-item sidebar-sub-ver-todos">Ver todos →</a>
       }
 

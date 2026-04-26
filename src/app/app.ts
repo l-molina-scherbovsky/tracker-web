@@ -11,14 +11,14 @@ import { RegistroVisitaPanelComponent } from './registro-visita-panel/registro-v
   styleUrl: './app.css'
 })
 export class App implements OnInit {
-  protocols: Protocol[] = [];
+  protocols = signal<Protocol[]>([]);
   showRegistroPanel = signal(false);
 
   constructor(private supabase: SupabaseService) {}
 
   async ngOnInit() {
     try {
-      this.protocols = await this.supabase.getProtocols();
+      this.protocols.set(await this.supabase.getProtocols());
     } catch {}
   }
 }

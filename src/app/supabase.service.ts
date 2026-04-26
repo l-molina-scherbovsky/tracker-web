@@ -12,7 +12,6 @@ export interface VisitDefinition {
   protocol_id: string;
   visit_code: string;
   visit_type: string;
-  date_mode: string;
   offset_days: number;
   window_days: number;
   sort_order: number;

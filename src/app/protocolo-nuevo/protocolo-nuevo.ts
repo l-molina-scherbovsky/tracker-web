@@ -112,7 +112,7 @@ export class ProtocoloNuevo implements OnInit {
           sort_order:  i,
         };
         console.log('[ProtocoloNuevo] INSERT visit_definition payload:', JSON.stringify(visitPayload));
-        const created = await this.supabase.createVisitDefinition(visitPayload as any);
+        const created = await this.supabase.createVisitDefinition(visitPayload);
         console.log('[ProtocoloNuevo] Visita guardada:', created.id, '(', def.visit_code, ')');
 
         const itemsToSave = def.checklistItems.filter(item => item.name.trim());

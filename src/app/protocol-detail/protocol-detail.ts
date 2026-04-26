@@ -380,7 +380,7 @@ export class ProtocolDetail implements OnInit {
             protocol_id: this.protocolId, visit_code: def.visit_code,
             visit_type: this.toDbVisitType(def.visit_type),
             offset_days: def.offset_days, window_days: def.window_days, sort_order: order,
-          } as any);
+          });
           def.id = created.id;
         }
         let itemOrder = 0;
