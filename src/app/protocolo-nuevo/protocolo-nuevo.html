@@ -1,0 +1,102 @@
+<div class="page-header">
+  <a routerLink="/protocolos" class="back-btn">
+    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div class="page-header-text">
+    <h1>Nuevo protocolo</h1>
+  </div>
+</div>
+
+@if (error) {
+  <div class="error-state" style="margin-bottom:16px;">
+    <div class="error-title">Error al guardar</div>
+    <div class="error-message">{{ error }}</div>
+  </div>
+}
+
+<!-- Datos básicos -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="form-section-title">Datos del protocolo</div>
+  <div class="form-row">
+    <div class="form-field">
+      <label class="form-label">ID del protocolo</label>
+      <input type="text" [(ngModel)]="protocolId" placeholder="Ej: FLAIR-001"
+             class="form-input" style="text-transform:uppercase" />
+      <span class="form-hint">Código único, no se puede cambiar después</span>
+    </div>
+    <div class="form-field" style="flex:2">
+      <label class="form-label">Nombre del protocolo</label>
+      <input type="text" [(ngModel)]="protocolName" placeholder="Nombre completo del estudio"
+             class="form-input" />
+    </div>
+  </div>
+</div>
+
+<!-- Visitas del protocolo -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="form-section-title">Visitas del protocolo</div>
+
+  @for (def of visitDefs; track $index) {
+    <div class="edit-visit-def">
+      <div class="edit-visit-def-header" (click)="def.expanded = !def.expanded">
+        <div style="display:flex; align-items:center; gap:10px; flex:1">
+          <input type="text" [(ngModel)]="def.visit_code" placeholder="V1"
+                 class="edit-visit-code-input" (click)="$event.stopPropagation()" />
+          <select [(ngModel)]="def.visit_type" class="filter-select" (click)="$event.stopPropagation()">
+            @for (opt of visitTypeOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+          <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#6b7280">
+            <span>Día</span>
+            <input type="number" [(ngModel)]="def.offset_days" min="0"
+                   class="edit-num-input" (click)="$event.stopPropagation()" />
+            <span>Ventana ±</span>
+            <input type="number" [(ngModel)]="def.window_days" min="1"
+                   class="edit-num-input" (click)="$event.stopPropagation()" />
+            <span>días</span>
+          </div>
+        </div>
+        <button class="edit-remove-btn" (click)="removeVisit($index); $event.stopPropagation()">Eliminar</button>
+        <svg width="12" height="12" fill="none" stroke="#9ca3af" viewBox="0 0 24 24"
+             [style.transform]="def.expanded ? 'rotate(90deg)' : 'none'" style="transition:transform 0.15s; flex-shrink:0">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+
+      @if (def.expanded) {
+        <div class="edit-checklist-section">
+          <div class="edit-checklist-title">Checklist de la visita</div>
+          @for (item of def.checklistItems; track $index) {
+            <div class="edit-checklist-item-row">
+              <input type="text" [(ngModel)]="item.name" placeholder="Nombre del ítem"
+                     class="form-input" style="flex:1; font-size:12px; padding:5px 8px;" />
+              <select [(ngModel)]="item.plazo_horas" class="filter-select" style="font-size:12px;">
+                @for (p of plazos; track p.value) {
+                  <option [ngValue]="p.value">{{ p.label }}</option>
+                }
+              </select>
+              <button class="edit-remove-btn" (click)="removeChecklistItem(def, $index)">✕</button>
+            </div>
+          }
+          <button class="add-item-btn" (click)="addChecklistItem(def)">+ Agregar ítem</button>
+        </div>
+      }
+    </div>
+  }
+
+  @if (loadingTemplates) {
+    <div style="font-size:12px; color:#9ca3af; margin-bottom:8px;">Cargando plantillas...</div>
+  }
+  <button class="add-visit-btn" (click)="addVisit()" [disabled]="loadingTemplates">+ Agregar visita</button>
+</div>
+
+<!-- Acciones -->
+<div style="display:flex; gap:10px; justify-content:flex-end;">
+  <a routerLink="/protocolos" class="form-cancel-btn">Cancelar</a>
+  <button class="form-save-btn" (click)="save()" [disabled]="!canSave() || saving">
+    {{ saving ? 'Guardando...' : 'Crear protocolo' }}
+  </button>
+</div>

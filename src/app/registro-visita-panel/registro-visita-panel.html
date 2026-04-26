@@ -1,0 +1,74 @@
+@if (visible) {
+  <div class="rvp-overlay" (click)="close()"></div>
+
+  <div class="rvp-panel">
+    <div class="rvp-header">
+      <span class="rvp-title">Registrar visita</span>
+      <button class="rvp-close-btn" (click)="close()">✕</button>
+    </div>
+
+    <div class="rvp-body">
+
+      <div class="rvp-section-label">Buscar paciente</div>
+      <div style="position:relative; margin-bottom:16px;">
+        <input
+          type="text"
+          [(ngModel)]="searchText"
+          (input)="onSearchInput()"
+          placeholder="Nombre o ID del paciente..."
+          class="rvp-search-input"
+          autocomplete="off" />
+        @if (showDropdown && filteredPatients.length > 0) {
+          <div class="rvp-dropdown">
+            @for (p of filteredPatients; track p.id) {
+              <button class="rvp-dropdown-item" (click)="selectPatient(p)">
+                <span class="rvp-dropdown-id">{{ p.id }}</span>
+                <span class="rvp-dropdown-name">{{ p.full_name }}</span>
+                <span class="rvp-dropdown-protocol">{{ p.protocol_id }}</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (loading()) {
+        <div style="text-align:center; color:#9ca3af; font-size:13px; padding:20px 0;">Cargando pacientes...</div>
+
+      } @else if (selectedPatient) {
+
+        <div class="rvp-patient-card">
+          <div class="rvp-patient-card-id">{{ selectedPatient.id }}</div>
+          <div class="rvp-patient-card-name">{{ selectedPatient.full_name }}</div>
+          <div class="rvp-patient-card-meta">{{ selectedPatient.protocol_id }} · {{ selectedPatient.coordinator }}</div>
+        </div>
+
+        @if (pendingVisits().length === 0) {
+          <div class="rvp-empty">No hay visitas pendientes para este paciente.</div>
+        } @else {
+          <div class="rvp-section-label" style="margin-top:20px;">Visitas pendientes</div>
+          @for (visit of pendingVisits(); track visit.id) {
+            <div class="rvp-visit-row">
+              <div class="rvp-visit-meta">
+                <span class="rvp-visit-label">{{ visit.label }}</span>
+                <span class="rvp-visit-date">Est. {{ fmtDate(visit.estimated_date) }}</span>
+              </div>
+              @if (saved[visit.id]) {
+                <span class="rvp-saved-badge">✓ Guardado</span>
+              } @else {
+                <div class="rvp-date-row">
+                  <input type="date" [(ngModel)]="registerDates[visit.id]" class="rvp-date-input" />
+                  <button class="rvp-save-btn"
+                    (click)="saveDate(visit)"
+                    [disabled]="!registerDates[visit.id] || saving[visit.id]">
+                    {{ saving[visit.id] ? '...' : 'Guardar' }}
+                  </button>
+                </div>
+              }
+            </div>
+          }
+        }
+      }
+
+    </div>
+  </div>
+}

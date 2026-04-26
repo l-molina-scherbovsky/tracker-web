@@ -11,7 +11,7 @@
       </svg>
     </a>
     <div class="page-header-text" style="flex:1">
-      <h1>{{ patient?.id }} · {{ patient?.initials }}</h1>
+      <h1>{{ patient?.id }} · {{ patient?.full_name }}</h1>
       <p class="subtitle">{{ protocolId }} · {{ patient?.coordinator }}</p>
     </div>
     @if (patient?.status === 'Activo') {

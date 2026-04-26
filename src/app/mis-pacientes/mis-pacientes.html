@@ -1,0 +1,156 @@
+@if (loading()) {
+  <div class="loading-state">Cargando...</div>
+
+} @else if (error()) {
+  <div class="error-state">
+    <p class="error-title">Error al cargar</p>
+    <p class="error-message">{{ error() }}</p>
+  </div>
+
+} @else {
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1>Mis pacientes</h1>
+      <p class="subtitle">{{ totalPatients }} paciente{{ totalPatients !== 1 ? 's' : '' }} · {{ totalProtocols }} protocolo{{ totalProtocols !== 1 ? 's' : '' }}</p>
+    </div>
+  </div>
+
+  <!-- Tabs de días -->
+  <div class="day-tabs">
+    @for (day of weekDays; track day.shortKey) {
+      <button class="day-tab" [class.active]="selectedDay === day.shortKey" (click)="selectDay(day.shortKey)">
+        {{ day.label }}
+        @if (day.count > 0 && day.shortKey !== 'todos') {
+          <span class="day-tab-count">{{ day.count }}</span>
+        }
+      </button>
+    }
+  </div>
+
+  <!-- Filtros -->
+  <div class="mis-pacientes-filters">
+    <select #protocolSel class="filter-select" [value]="selectedProtocolId"
+            (change)="setProtocolFilter(protocolSel.value)">
+      <option value="">Protocolo</option>
+      @for (p of myProtocols; track p.id) {
+        <option [value]="p.id">{{ p.name }}</option>
+      }
+    </select>
+    <select #statusSel class="filter-select" [value]="selectedVisitStatus"
+            (change)="setStatusFilter(statusSel.value)">
+      <option value="">Estado de visita</option>
+      @for (opt of visitStatusOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- Chips de filtros activos -->
+  @if (hasActiveFilters) {
+    <div class="active-filters">
+      @if (selectedProtocolId) {
+        <span class="filter-chip">
+          {{ selectedProtocolLabel }}
+          <button class="chip-remove" (click)="setProtocolFilter('')">✕</button>
+        </span>
+      }
+      @if (selectedVisitStatus) {
+        <span class="filter-chip">
+          {{ selectedStatusLabel }}
+          <button class="chip-remove" (click)="setStatusFilter('')">✕</button>
+        </span>
+      }
+      <button class="clear-filters-btn" (click)="clearFilters()">Limpiar filtros</button>
+    </div>
+  }
+
+  <!-- Lista -->
+  @if (groups.length === 0) {
+    <div class="panel" style="padding:32px 20px; text-align:center; color:#9ca3af; font-size:13px;">
+      No hay visitas para el día y filtros seleccionados.
+    </div>
+  } @else {
+    @for (group of groups; track group.protocol.id) {
+      <div class="panel">
+
+        <!-- Encabezado de protocolo -->
+        <div class="mis-protocol-header">
+          <span class="mis-protocol-name">{{ group.protocol.name }}</span>
+          <span class="mis-protocol-count">{{ groupCountLabel(group.rows.length) }}</span>
+        </div>
+
+        <!-- Filas de paciente -->
+        @for (row of group.rows; track row.patient.id + '-' + row.visit.id) {
+          <div class="patient-row" [class.is-expanded]="row.expanded"
+               style="flex-direction:column; align-items:stretch; padding:0; cursor:default;">
+
+            <div class="patient-row-header"
+                 style="display:flex; align-items:center; gap:14px; padding:11px 16px;"
+                 (click)="toggleRow(row)">
+
+              <!-- ID + nombre -->
+              <div class="patient-id-col">
+                <span class="patient-id">{{ row.patient.id }}</span>
+              </div>
+              <span class="mp-patient-name">{{ row.patient.full_name }}</span>
+
+              <!-- Chip de visita + badge de estado -->
+              <div style="display:flex; align-items:center; gap:6px; flex:1; min-width:0;">
+                <span class="visit-chip"
+                  [class.futura]="displayStatus(row.visit) === 'futura'"
+                  [class.proxima]="displayStatus(row.visit) === 'proxima'"
+                  [class.realizada]="displayStatus(row.visit) === 'realizada'"
+                  [class.vencida]="displayStatus(row.visit) === 'vencida'"
+                  [class.completa]="displayStatus(row.visit) === 'completa'"
+                  style="cursor:default; flex-shrink:0;">
+                  @if (displayStatus(row.visit) === 'realizada') {
+                    <span class="chip-dot-realizada"></span>
+                  }
+                  <span class="chip-label">{{ row.visit.label }}</span>
+                  <span class="chip-date">{{ fmtDate(row.visit.real_date ?? row.visit.estimated_date) }}</span>
+                </span>
+                <span class="inline-visit-badge"
+                  [class.badge-futura]="displayStatus(row.visit) === 'futura'"
+                  [class.badge-proxima]="displayStatus(row.visit) === 'proxima'"
+                  [class.badge-realizada]="displayStatus(row.visit) === 'realizada'"
+                  [class.badge-vencida]="displayStatus(row.visit) === 'vencida'"
+                  [class.badge-completa]="displayStatus(row.visit) === 'completa'">
+                  {{ visitBadgeLabel(row.visit) }}
+                </span>
+              </div>
+
+              <!-- Badge Activo/Falla -->
+              <span class="status-badge"
+                [class.activo]="row.patient.status === 'Activo'"
+                [class.falla]="row.patient.status !== 'Activo'"
+                style="flex-shrink:0;">
+                {{ row.patient.status === 'Activo' ? 'Activo' : 'Falla' }}
+              </span>
+
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                   class="row-arrow"
+                   [style.transform]="row.expanded ? 'rotate(90deg)' : 'none'"
+                   style="transition:transform 0.2s; flex-shrink:0">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>
+
+            @if (row.expanded) {
+              <div (click)="$event.stopPropagation()">
+                <app-patient-detail-panel
+                  [patientId]="row.patient.id"
+                  [visitId]="row.visit.id">
+                </app-patient-detail-panel>
+              </div>
+            }
+
+          </div>
+        }
+
+      </div>
+    }
+  }
+
+}

@@ -1,0 +1,151 @@
+@if (loading()) {
+
+  <div class="patient-inline-layout">
+    <div class="patient-inline-left">
+      <div class="inline-col-title">Visitas del protocolo</div>
+      <div style="padding:16px;">
+        <div class="skeleton" style="width:80%; height:12px; margin-bottom:10px;"></div>
+        <div class="skeleton" style="width:60%; height:12px; margin-bottom:10px;"></div>
+        <div class="skeleton" style="width:70%; height:12px;"></div>
+      </div>
+    </div>
+    <div class="patient-inline-right">
+      <div class="inline-col-title">Checklist</div>
+      <div style="padding:16px;">
+        <div class="skeleton" style="width:70%; height:12px; margin-bottom:10px;"></div>
+        <div class="skeleton" style="width:55%; height:12px; margin-bottom:10px;"></div>
+        <div class="skeleton" style="width:80%; height:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+} @else {
+
+  <div class="patient-inline-layout">
+
+    <!-- Columna izquierda: lista de visitas -->
+    <div class="patient-inline-left">
+      <div class="inline-col-title">Visitas del protocolo</div>
+      @for (visit of visits; track visit.id) {
+        <div class="inline-visit-row"
+             [class.selected]="selectedVisit?.id === visit.id"
+             (click)="selectVisit(visit)">
+          <span class="inline-visit-id">{{ visit.label }}</span>
+          <span class="inline-visit-date">{{ fmtDate(visit.real_date ?? visit.estimated_date) }}</span>
+          <span class="inline-visit-badge"
+            [class.badge-futura]="displayStatus(visit) === 'futura'"
+            [class.badge-proxima]="displayStatus(visit) === 'proxima'"
+            [class.badge-realizada]="displayStatus(visit) === 'realizada'"
+            [class.badge-vencida]="displayStatus(visit) === 'vencida'"
+            [class.badge-completa]="displayStatus(visit) === 'completa'">
+            {{ visitBadgeLabel(visit) }}
+          </span>
+        </div>
+      }
+    </div>
+
+    <!-- Columna derecha: checklist de la visita seleccionada -->
+    <div class="patient-inline-right">
+
+      @if (loadingVisit) {
+        <div class="inline-col-title">Checklist</div>
+        <div style="padding:16px;">
+          <div class="skeleton" style="width:70%; height:12px; margin-bottom:10px;"></div>
+          <div class="skeleton" style="width:55%; height:12px; margin-bottom:10px;"></div>
+          <div class="skeleton" style="width:80%; height:12px;"></div>
+        </div>
+
+      } @else if (selectedVisit) {
+
+        <div class="inline-col-title">
+          Checklist&nbsp;·&nbsp;{{ selectedVisit.label }}&nbsp;·&nbsp;{{ fmtDate(selectedVisit.real_date ?? selectedVisit.estimated_date) }}
+        </div>
+
+        <!-- Strip de fechas -->
+        <div class="visit-date-strip">
+          <div class="visit-date-strip-item">
+            <span class="visit-date-strip-label">Estimada</span>
+            <span class="visit-date-strip-value">{{ fmtDate(selectedVisit.estimated_date) }}</span>
+          </div>
+          <div class="visit-date-strip-item">
+            <span class="visit-date-strip-label">Realizada</span>
+            @if (selectedVisit.real_date) {
+              <span class="visit-date-strip-value visit-date-real">{{ fmtDate(selectedVisit.real_date) }}</span>
+            } @else if (registeringDate) {
+              <div class="register-date-inline" (click)="$event.stopPropagation()">
+                <input type="date" [(ngModel)]="newRealDate" class="register-date-input" />
+                <button class="register-date-save-btn" (click)="saveDate()" [disabled]="!newRealDate || savingDate">
+                  {{ savingDate ? '...' : 'Guardar' }}
+                </button>
+                <button class="register-date-cancel-btn" (click)="registeringDate = false">✕</button>
+              </div>
+            } @else {
+              <button class="register-date-btn" (click)="registeringDate = true; $event.stopPropagation()">
+                + Registrar fecha
+              </button>
+            }
+          </div>
+          <div class="visit-date-strip-item">
+            <span class="visit-date-strip-label">Ventana</span>
+            @if (selectedVisit.real_date) {
+              <span class="visit-date-strip-value">{{ fmtDate(selectedVisit.real_date) }}&nbsp;→&nbsp;{{ visitWindowEnd(selectedVisit, checklist) }}</span>
+            } @else {
+              <span class="visit-date-strip-value visit-date-pending">—</span>
+            }
+          </div>
+        </div>
+
+        @if (checklist.length > 0) {
+          @for (group of groupedChecklist(checklist); track group.label) {
+            <div class="checklist-section">
+              <div class="checklist-group-title">{{ group.label }}</div>
+              <ul style="margin:0; padding:0; list-style:none">
+                @for (item of group.items; track item.id) {
+                  <li class="checklist-item" (click)="toggleItem(item)">
+                    <span class="check-square" [class.done]="item.done">
+                      @if (item.done) {
+                        <svg width="10" height="10" fill="none" stroke="white" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                        </svg>
+                      }
+                    </span>
+                    <span class="inline-check-label" [class.done]="item.done">{{ item.label }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        } @else {
+          <div class="checklist-section" style="color:#9ca3af; font-size:12px; font-style:italic">
+            Sin checklist para esta visita.
+          </div>
+        }
+
+        <!-- Aclaraciones -->
+        <div class="notes-section">
+          <div class="notes-title">Aclaraciones</div>
+          <textarea
+            [(ngModel)]="noteText"
+            rows="3"
+            placeholder="Observaciones sobre esta visita..."
+            class="notes-textarea">
+          </textarea>
+          <button
+            (click)="saveNote()"
+            [disabled]="savingNote"
+            class="notes-save-btn">
+            {{ savingNote ? 'Guardando...' : 'Guardar' }}
+          </button>
+        </div>
+
+      } @else {
+        <div class="inline-col-title">Checklist</div>
+        <div style="padding:28px 16px; text-align:center; color:#d1d5db; font-size:12px;">
+          Seleccioná una visita
+        </div>
+      }
+
+    </div>
+  </div>
+
+}

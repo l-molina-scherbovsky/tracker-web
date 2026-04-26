@@ -1,0 +1,136 @@
+@if (loading()) {
+  <div class="loading-state">Cargando...</div>
+
+} @else if (loadError()) {
+  <div class="error-state">
+    <div class="error-title">Error al cargar plantillas</div>
+    <div class="error-message">{{ loadError() }}</div>
+  </div>
+
+} @else {
+
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1>Plantillas predefinidas</h1>
+      <p class="subtitle">Base para los checklists de nuevos protocolos</p>
+    </div>
+  </div>
+
+  <div class="banner-info">
+    Los cambios aquí no afectan protocolos existentes. Solo se aplican al crear nuevos protocolos.
+  </div>
+
+  <div class="plantillas-grid">
+
+    @for (panel of panels; track panel.template.id) {
+      <div class="panel plantilla-panel">
+
+        <div class="plantilla-panel-header">
+          <span class="plantilla-panel-title">
+            {{ panel.template.visit_type === 'presencial' ? 'Plantilla presencial' : 'Plantilla telefonica' }}
+          </span>
+          <span class="status-badge" [class.badge-presencial]="panel.template.visit_type === 'presencial'"
+                                     [class.badge-telefonica]="panel.template.visit_type === 'telefonica'">
+            {{ panel.template.visit_type }}
+          </span>
+        </div>
+
+        <div class="plantilla-items">
+
+          @for (item of panel.items; track $index) {
+            @if (!item.deleted) {
+              <div class="plantilla-item">
+
+                <div class="plantilla-item-left">
+                  @if (item.editingName) {
+                    <input class="plantilla-name-input"
+                           [(ngModel)]="item.editName"
+                           (blur)="commitEditName(item)"
+                           (keydown.enter)="commitEditName(item)"
+                           (keydown.escape)="cancelEditName(item)"
+                           autofocus />
+                  } @else {
+                    <span class="plantilla-item-name" (click)="startEditName(item)">
+                      {{ item.name }}
+                    </span>
+                    @if (!item.obligatorio) {
+                      <span class="badge-opcional">opcional</span>
+                    }
+                  }
+                </div>
+
+                <div class="plantilla-item-right">
+                  <div class="plazo-picker-wrap">
+                    <button class="plazo-badge" (click)="togglePlazoPicker(item)">
+                      {{ plazoLabel(item.plazo_horas) }}
+                    </button>
+                    @if (item.showPlazoPicker) {
+                      <div class="plazo-dropdown">
+                        @for (p of plazos; track p.value) {
+                          <div class="plazo-option" [class.selected]="item.plazo_horas === p.value"
+                               (click)="selectPlazo(item, p.value)">
+                            {{ p.label }}
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <label class="obligatorio-toggle">
+                    <input type="checkbox" [(ngModel)]="item.obligatorio" />
+                    <span>{{ item.obligatorio ? 'Obligatorio' : 'Opcional' }}</span>
+                  </label>
+
+                  <button class="plantilla-remove-btn" (click)="item.deleted = true" title="Eliminar">✕</button>
+                </div>
+
+              </div>
+            }
+          }
+
+          @if (panel.adding) {
+            <div class="plantilla-add-row">
+              <input class="plantilla-name-input plantilla-add-input"
+                     [(ngModel)]="panel.newName"
+                     placeholder="Nombre del item"
+                     (keydown.enter)="confirmAdd(panel)"
+                     (keydown.escape)="cancelAdd(panel)"
+                     autofocus />
+              <div class="plantilla-add-controls">
+                <select class="plazo-select" [(ngModel)]="panel.newPlazo">
+                  @for (p of plazos; track p.value) {
+                    <option [ngValue]="p.value">{{ p.label }}</option>
+                  }
+                </select>
+                <label class="obligatorio-toggle">
+                  <input type="checkbox" [(ngModel)]="panel.newObligatorio" />
+                  <span>Obligatorio</span>
+                </label>
+                <button class="plantilla-confirm-btn" (click)="confirmAdd(panel)" title="Confirmar">✓</button>
+                <button class="plantilla-cancel-btn" (click)="cancelAdd(panel)" title="Cancelar">✕</button>
+              </div>
+            </div>
+          } @else {
+            <button class="add-visit-btn" (click)="startAdd(panel)">+ Agregar item</button>
+          }
+
+        </div>
+
+        <div class="plantilla-panel-footer">
+          @if (panel.error) {
+            <span class="plantilla-error">{{ panel.error }}</span>
+          }
+          @if (panel.saved) {
+            <span class="plantilla-saved">Plantilla guardada ✓</span>
+          }
+          <button class="form-save-btn" (click)="save(panel)" [disabled]="panel.saving">
+            {{ panel.saving ? 'Guardando...' : 'Guardar plantilla' }}
+          </button>
+        </div>
+
+      </div>
+    }
+
+  </div>
+
+}

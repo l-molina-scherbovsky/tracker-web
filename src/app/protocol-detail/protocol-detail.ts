@@ -1,33 +1,93 @@
 import { Component, OnInit, signal, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { SupabaseService, Patient, Visit, ChecklistItem } from '../supabase.service';
+import { SupabaseService, Patient, Visit, VisitDefinition, ChecklistItemDef, ChecklistTemplateItem } from '../supabase.service';
+import { PatientDetailPanelComponent } from '../patient-detail-panel/patient-detail-panel';
 
-interface ChecklistGroup { label: string; items: ChecklistItem[]; }
+interface PatientRow { patient: Patient; visits: Visit[]; expanded: boolean; }
 
-interface PatientRow {
-  patient: Patient;
-  visits: Visit[];
+interface EditChecklistItem { id?: string; name: string; plazo_horas: number; deleted: boolean; }
+
+interface EditTemplateItem {
+  id?: string;
+  name: string;
+  plazo_horas: number;
+  obligatorio: boolean;
+  deleted: boolean;
+  editingName: boolean;
+  editName: string;
+  showPlazoPicker: boolean;
+}
+
+interface TemplatePanel {
+  templateId: string;
+  visitType: string;
+  items: EditTemplateItem[];
+  adding: boolean;
+  newName: string;
+  newPlazo: number;
+  newObligatorio: boolean;
+  saving: boolean;
+  saved: boolean;
+  error: string;
+}
+interface EditVisitDef {
+  id?: string;
+  visit_code: string;
+  visit_type: string;
+  offset_days: number;
+  window_days: number;
+  sort_order: number;
   expanded: boolean;
-  selectedVisit: Visit | null;
-  checklist: ChecklistItem[];
-  noteText: string;
-  savingNote: boolean;
-  loadingVisit: boolean;
+  deleted: boolean;
+  checklistItems: EditChecklistItem[];
+  loadingChecklist: boolean;
 }
 
 @Component({
   selector: 'app-protocol-detail',
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, PatientDetailPanelComponent],
   templateUrl: './protocol-detail.html',
 })
 export class ProtocolDetail implements OnInit {
   protocolId = '';
+  protocolName = '';
   rows: PatientRow[] = [];
   filtered: PatientRow[] = [];
   selectedCoordinator = 'Todos';
   loading = signal(true);
   error = signal('');
+
+  // Edit mode
+  editMode = false;
+  editTab: 'general' | 'visitas' | 'plantilla' | 'pacientes' = 'general';
+  editName = '';
+  editVisitDefs: EditVisitDef[] = [];
+  loadingDefs = false;
+  savingEdit = false;
+  editError = '';
+
+  // Template panels (Tab 3)
+  templatePanels: TemplatePanel[] = [];
+  loadingTemplates = false;
+  templateLoadError = '';
+
+  readonly visitTypeOptions = [
+    { value: 'VP', label: 'Visita presencial' },
+    { value: 'CT', label: 'Contacto telefónico' },
+  ];
+
+  readonly plazos = [
+    { value: 0,   label: 'Inmediato' },
+    { value: 48,  label: '48 hs' },
+    { value: 168, label: '7 días' },
+  ];
+
+  readonly plazosTemplate = [
+    { value: 0,   label: 'Al momento' },
+    { value: 48,  label: '48 hs' },
+    { value: 168, label: '7 dias' },
+  ];
 
   get coordinators() {
     const set = new Set(this.rows.map(r => r.patient.coordinator));
@@ -42,31 +102,26 @@ export class ProtocolDetail implements OnInit {
 
   async ngOnInit() {
     this.protocolId = this.route.snapshot.paramMap.get('id') ?? '';
-    console.log('[ProtocolDetail] protocolId desde URL:', this.protocolId);
-
+    const startInEditMode = this.route.snapshot.data['startInEditMode'] === true;
     try {
+      const protocols = await this.supabase.getProtocols();
+      this.protocolName = protocols.find(p => p.id === this.protocolId)?.name ?? this.protocolId;
       const patients = await this.supabase.getPatients(this.protocolId);
-      console.log('[ProtocolDetail] pacientes recibidos:', patients.length, patients);
-
       const rows: PatientRow[] = [];
       for (const patient of patients) {
         const visits = await this.supabase.getVisits(patient.id);
-        console.log(`[ProtocolDetail] visitas para ${patient.id}:`, visits.length);
-        rows.push({
-          patient, visits,
-          expanded: false, selectedVisit: null,
-          checklist: [], noteText: '',
-          savingNote: false, loadingVisit: false,
-        });
+        rows.push({ patient, visits, expanded: false });
       }
       this.rows = rows;
       this.applyFilter();
     } catch (e: any) {
-      const msg = e?.message ?? JSON.stringify(e);
-      console.error('[ProtocolDetail] error Supabase:', msg, e);
-      this.error.set(msg);
+      this.error.set(e?.message ?? JSON.stringify(e));
     } finally {
       this.loading.set(false);
+    }
+    if (startInEditMode && !this.error()) {
+      const startTab = (this.route.snapshot.queryParamMap.get('tab') ?? 'general') as 'general' | 'visitas' | 'plantilla' | 'pacientes';
+      await this.enterEditMode(startTab);
     }
   }
 
@@ -77,176 +132,16 @@ export class ProtocolDetail implements OnInit {
     this.cdr.detectChanges();
   }
 
-  filterBy(coord: string) {
-    this.selectedCoordinator = coord;
-    this.applyFilter();
-  }
+  filterBy(coord: string) { this.selectedCoordinator = coord; this.applyFilter(); }
 
-  async togglePatient(row: PatientRow) {
-    if (row.expanded) {
-      row.expanded = false;
-      this.cdr.detectChanges();
-      return;
-    }
-    row.expanded = true;
-    this.cdr.detectChanges();
-    if (!row.selectedVisit && row.visits.length > 0) {
-      await this.selectVisit(row, row.visits[0]);
-    }
-  }
+  togglePatient(row: PatientRow) { row.expanded = !row.expanded; this.cdr.detectChanges(); }
 
-  async selectVisit(row: PatientRow, visit: Visit) {
-    row.selectedVisit = visit;
-    row.noteText = visit.notes ?? '';
-    row.loadingVisit = true;
-    this.cdr.detectChanges();
-    try {
-      row.checklist = await this.supabase.getChecklist(visit.id);
-      // Sincronizar status: si hay fecha real, recalcular y persistir si cambió
-      if (visit.real_date) {
-        const computed = this.computeVisitStatus(visit, row.checklist);
-        if (computed !== visit.status) {
-          visit.status = computed;
-          await this.supabase.updateVisitStatus(visit.id, computed);
-        }
-      }
-    } finally {
-      row.loadingVisit = false;
-      this.cdr.detectChanges();
-    }
-  }
-
-  async toggleItem(item: ChecklistItem, row: PatientRow) {
-    item.done = !item.done;
-    this.cdr.detectChanges();
-    await this.supabase.toggleChecklistItem(item.id, item.done);
-
-    // Recalcular y persistir el estado de la visita si cambió
-    const visit = row.selectedVisit;
-    if (visit?.real_date) {
-      const computed = this.computeVisitStatus(visit, row.checklist);
-      if (computed !== visit.status) {
-        visit.status = computed;
-        this.cdr.detectChanges(); // chips se actualizan inmediatamente
-        await this.supabase.updateVisitStatus(visit.id, computed);
-      }
-    }
-  }
-
-  async saveNote(row: PatientRow) {
-    if (!row.selectedVisit) return;
-    row.savingNote = true;
-    this.cdr.detectChanges();
-    await this.supabase.saveNote(row.selectedVisit.id, row.noteText);
-    row.selectedVisit.notes = row.noteText;
-    row.savingNote = false;
-    this.cdr.detectChanges();
-  }
-
-  // ── Estado calculado ─────────────────────────────────
-
-  /**
-   * Estado visible de una visita para chips y badges.
-   * Para visitas no realizadas lo deriva de la fecha estimada.
-   * Para visitas realizadas devuelve el status en memoria
-   * (que se mantiene sincronizado con la BD al seleccionar o togglear).
-   */
   displayStatus(visit: Visit): string {
     if (visit.real_date) return visit.status;
-    const now = Date.now();
-    const daysUntil = (new Date(visit.estimated_date).getTime() - now) / 86_400_000;
+    const daysUntil = (new Date(visit.estimated_date).getTime() - Date.now()) / 86_400_000;
     if (daysUntil > 7)  return 'futura';
     if (daysUntil >= 0) return 'proxima';
     return 'vencida';
-  }
-
-  /**
-   * Calcula el estado correcto de una visita ya realizada.
-   * Los plazos corren siempre desde real_date, nunca desde estimated_date.
-   * No llamar si !visit.real_date.
-   */
-  private computeVisitStatus(visit: Visit, checklist: ChecklistItem[]): string {
-    if (!visit.real_date) return this.displayStatus(visit); // guard de seguridad
-    const now = Date.now();
-    const pending = checklist.filter(i => !i.done);
-    if (pending.length === 0) return 'completa';
-
-    // El plazo corre desde la fecha REAL de realización, nunca desde la estimada
-    const realMs = new Date(visit.real_date).getTime();
-    const hasExpired = pending.some(i => {
-      const p = this.resolvePlazo(i);
-      return p !== null && realMs + p * 3_600_000 < now;
-    });
-
-    return hasExpired ? 'vencida' : 'realizada';
-  }
-
-  private resolvePlazo(item: ChecklistItem): number | null {
-    if (item.plazo_horas != null) return item.plazo_horas;
-    switch (item.deadline) {
-      case 'inmediato': return 0;
-      case '48hs':      return 48;
-      case '7dias':     return 168;
-      default:          return null;
-    }
-  }
-
-  // ── Helpers de presentación ──────────────────────────
-
-  groupedChecklist(checklist: ChecklistItem[]): ChecklistGroup[] {
-    const groups: Record<string, ChecklistGroup> = {
-      inmediato: { label: 'Al momento de la visita', items: [] },
-      '48hs':    { label: 'Dentro de 48 hs', items: [] },
-      '7dias':   { label: 'Hasta 7 días', items: [] },
-    };
-    for (const item of checklist) {
-      groups[item.deadline]?.items.push(item);
-    }
-    return Object.values(groups).filter(g => g.items.length > 0);
-  }
-
-  /**
-   * Badge label contextual:
-   * - 'vencida' sin real_date → la ventana de la visita pasó sin realizarse → "Vencida"
-   * - 'vencida' con real_date → ítems con plazo vencido tras la visita → "Lab pend."
-   */
-  visitBadgeLabel(visit: Visit): string {
-    const status = this.displayStatus(visit);
-    if (status === 'vencida') {
-      return visit.real_date ? 'Lab pend.' : 'Vencida';
-    }
-    const map: Record<string, string> = {
-      futura: 'Futura', proxima: 'Próxima', realizada: 'Realizada', completa: 'Completa',
-    };
-    return map[status] ?? status;
-  }
-
-  /**
-   * Fecha límite de la ventana de completado del checklist:
-   * real_date + plazo máximo de los ítems.
-   * Devuelve '—' si la visita no fue realizada o no tiene ítems.
-   */
-  visitWindowEnd(visit: Visit, checklist: ChecklistItem[]): string {
-    if (!visit.real_date || checklist.length === 0) return '—';
-    const maxPlazo = checklist.reduce((max, i) => Math.max(max, this.resolvePlazo(i) ?? 0), 0);
-    const endMs = new Date(visit.real_date).getTime() + maxPlazo * 3_600_000;
-    return this.fmtDate(new Date(endMs).toISOString().slice(0, 10));
-  }
-
-  badgeLabel(status: string): string {
-    const map: Record<string, string> = {
-      futura: 'Futura', proxima: 'Próxima', realizada: 'Realizada',
-      vencida: 'Lab pend.', completa: 'Completa',
-    };
-    return map[status] ?? status;
-  }
-
-  statusLabel(status: string): string {
-    const map: Record<string, string> = {
-      futura: 'Futura', proxima: 'Próxima', realizada: 'Realizada',
-      vencida: 'Ítems vencidos', completa: 'Completa',
-    };
-    return map[status] ?? status;
   }
 
   fmtDate(d: string | null | undefined): string {
@@ -256,5 +151,260 @@ export class ProtocolDetail implements OnInit {
       return `${day}/${m}/${y.slice(2)}`;
     }
     return d;
+  }
+
+  private toDbVisitType(t: string): string {
+    if (t === 'VP') return 'presencial';
+    if (t === 'CT') return 'telefonica';
+    return t;
+  }
+
+  // ── Edit mode ───────────────────────────────────────
+
+  async enterEditMode(startTab: 'general' | 'visitas' | 'plantilla' | 'pacientes' = 'general') {
+    this.editMode = true;
+    this.editTab = startTab;
+    this.editName = this.protocolName;
+    this.editError = '';
+    this.templatePanels = [];
+    await Promise.all([this.loadVisitDefs(), this.loadProtocolTemplates()]);
+  }
+
+  exitEditMode() {
+    this.editMode = false;
+    this.editVisitDefs = [];
+    this.templatePanels = [];
+  }
+
+  private async loadProtocolTemplates() {
+    this.loadingTemplates = true;
+    this.templateLoadError = '';
+    this.cdr.detectChanges();
+    try {
+      console.log('[Tab3] Cargando plantillas para protocolId:', this.protocolId);
+
+      let templates = await this.supabase.getProtocolTemplates(this.protocolId);
+      console.log('[Tab3] Templates del protocolo (is_global=false):', templates);
+
+      if (templates.length === 0) {
+        console.log('[Tab3] Sin plantillas propias, copiando desde globales...');
+        await this.supabase.copyGlobalTemplatesToProtocol(this.protocolId);
+        templates = await this.supabase.getProtocolTemplates(this.protocolId);
+        console.log('[Tab3] Templates después de copiar:', templates);
+      }
+
+      const panels: TemplatePanel[] = [];
+      for (const t of templates) {
+        const rawItems = await this.supabase.getTemplateItems(t.id);
+        console.log(`[Tab3] Items de template ${t.id} (${t.visit_type}):`, rawItems);
+        panels.push({
+          templateId: t.id, visitType: t.visit_type,
+          items: rawItems.map(i => ({
+            id: i.id, name: i.name, plazo_horas: i.plazo_horas, obligatorio: i.obligatorio,
+            deleted: false, editingName: false, editName: i.name, showPlazoPicker: false,
+          })),
+          adding: false, newName: '', newPlazo: 0, newObligatorio: true,
+          saving: false, saved: false, error: '',
+        });
+      }
+      this.templatePanels = panels;
+      console.log('[Tab3] templatePanels finales:', this.templatePanels);
+    } catch (e: any) {
+      const msg = e?.message ?? JSON.stringify(e);
+      console.error('[Tab3] Error cargando plantillas:', msg);
+      this.templateLoadError = msg;
+    } finally {
+      this.loadingTemplates = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  private async loadVisitDefs() {
+    this.loadingDefs = true;
+    this.cdr.detectChanges();
+    try {
+      const defs = await this.supabase.getVisitDefinitions(this.protocolId);
+      this.editVisitDefs = defs.map(d => ({
+        id: d.id, visit_code: d.visit_code, visit_type: d.visit_type,
+        offset_days: d.offset_days, window_days: d.window_days,
+        sort_order: d.sort_order, expanded: false, deleted: false, checklistItems: [], loadingChecklist: false,
+      }));
+    } finally {
+      this.loadingDefs = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async toggleEditDef(def: EditVisitDef) {
+    def.expanded = !def.expanded;
+    if (def.expanded && def.id && def.checklistItems.length === 0) {
+      def.loadingChecklist = true;
+      this.cdr.detectChanges();
+      const items = await this.supabase.getChecklistItemDefs(def.id);
+      def.checklistItems = items.map(i => ({ id: i.id, name: i.name, plazo_horas: i.plazo_horas, deleted: false }));
+      def.loadingChecklist = false;
+      this.cdr.detectChanges();
+    }
+    this.cdr.detectChanges();
+  }
+
+  async addVisitDef(visitType: string = 'VP') {
+    const dbType = this.toDbVisitType(visitType); // 'presencial' | 'telefonica'
+    let preItems: EditChecklistItem[] = [];
+
+    // Primary: protocol-specific template already loaded in templatePanels
+    const tpl = this.templatePanels.find(p => p.visitType === dbType);
+    if (tpl) {
+      preItems = tpl.items.filter(i => !i.deleted).map(i => ({ name: i.name, plazo_horas: i.plazo_horas, deleted: false }));
+      console.log('Plantilla encontrada para tipo:', dbType, preItems.length, 'ítems');
+    } else {
+      // Fallback: protocol has no own templates — read from global
+      try {
+        const globals = await this.supabase.getGlobalTemplates();
+        const globalTpl = globals.find(t => t.visit_type === dbType);
+        if (globalTpl) {
+          const items = await this.supabase.getTemplateItems(globalTpl.id);
+          preItems = items.map(i => ({ name: i.name, plazo_horas: i.plazo_horas, deleted: false }));
+          console.log('Plantilla encontrada para tipo:', dbType, preItems.length, 'ítems (plantilla global)');
+        } else {
+          console.log('Plantilla encontrada para tipo:', dbType, 0, 'ítems (sin plantilla disponible)');
+        }
+      } catch (e: any) {
+        console.error('[addVisitDef] Error cargando plantilla global de fallback:', e);
+      }
+    }
+
+    const visitCode = `V${this.editVisitDefs.filter(d => !d.deleted).length + 1}`;
+    this.editVisitDefs.push({
+      visit_code: visitCode,
+      visit_type: visitType, offset_days: 0, window_days: 7,
+      sort_order: this.editVisitDefs.length,
+      expanded: true, deleted: false,
+      checklistItems: preItems,
+      loadingChecklist: false,
+    });
+    console.log('Visita nueva creada con ítems:', visitCode, preItems.length);
+    this.cdr.detectChanges();
+  }
+
+  addChecklistItem(def: EditVisitDef) {
+    def.checklistItems.push({ name: '', plazo_horas: 48, deleted: false });
+  }
+
+  // ── Template panel methods (Tab 3) ──────────────────
+
+  plazoLabel(hours: number): string {
+    return this.plazosTemplate.find(p => p.value === hours)?.label ?? `${hours} hs`;
+  }
+
+  startEditTplName(item: EditTemplateItem) { item.editName = item.name; item.editingName = true; }
+  commitEditTplName(item: EditTemplateItem) { if (item.editName.trim()) item.name = item.editName.trim(); item.editingName = false; }
+  cancelEditTplName(item: EditTemplateItem) { item.editingName = false; }
+
+  toggleTplPlazoPicker(item: EditTemplateItem) {
+    const next = !item.showPlazoPicker;
+    for (const p of this.templatePanels) for (const i of p.items) i.showPlazoPicker = false;
+    item.showPlazoPicker = next;
+  }
+
+  selectTplPlazo(item: EditTemplateItem, value: number) { item.plazo_horas = value; item.showPlazoPicker = false; }
+
+  startAddTplItem(panel: TemplatePanel) { panel.adding = true; panel.newName = ''; panel.newPlazo = 0; panel.newObligatorio = true; }
+  cancelAddTplItem(panel: TemplatePanel) { panel.adding = false; }
+
+  confirmAddTplItem(panel: TemplatePanel) {
+    if (!panel.newName.trim()) return;
+    panel.items.push({
+      name: panel.newName.trim(), plazo_horas: panel.newPlazo, obligatorio: panel.newObligatorio,
+      deleted: false, editingName: false, editName: panel.newName.trim(), showPlazoPicker: false,
+    });
+    panel.adding = false;
+  }
+
+  async saveTplPanel(panel: TemplatePanel) {
+    panel.saving = true; panel.saved = false; panel.error = '';
+    this.cdr.detectChanges();
+    try {
+      let order = 0;
+      for (const item of panel.items) {
+        if (item.deleted) {
+          if (item.id) await this.supabase.deleteTemplateItem(item.id);
+          continue;
+        }
+        if (item.id) {
+          await this.supabase.updateTemplateItem(item.id, {
+            name: item.name, plazo_horas: item.plazo_horas,
+            obligatorio: item.obligatorio, sort_order: order,
+          });
+        } else {
+          const created = await this.supabase.createTemplateItem({
+            template_id: panel.templateId, name: item.name,
+            plazo_horas: item.plazo_horas, obligatorio: item.obligatorio, sort_order: order,
+          });
+          item.id = created.id;
+        }
+        order++;
+      }
+      panel.items = panel.items.filter(i => !i.deleted);
+      panel.saved = true;
+      setTimeout(() => { panel.saved = false; this.cdr.detectChanges(); }, 2500);
+    } catch (e: any) {
+      panel.error = e?.message ?? JSON.stringify(e);
+    } finally {
+      panel.saving = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  async saveEdit() {
+    this.savingEdit = true;
+    this.editError = '';
+    this.cdr.detectChanges();
+    try {
+      await this.supabase.updateProtocol(this.protocolId, this.editName.trim());
+      this.protocolName = this.editName.trim();
+
+      let order = 0;
+      for (const def of this.editVisitDefs) {
+        if (def.deleted) {
+          if (def.id) await this.supabase.deleteVisitDefinition(def.id);
+          continue;
+        }
+        if (def.id) {
+          await this.supabase.updateVisitDefinition(def.id, {
+            visit_code: def.visit_code, visit_type: this.toDbVisitType(def.visit_type),
+            offset_days: def.offset_days, window_days: def.window_days, sort_order: order,
+          });
+        } else {
+          const created = await this.supabase.createVisitDefinition({
+            protocol_id: this.protocolId, visit_code: def.visit_code,
+            visit_type: this.toDbVisitType(def.visit_type),
+            offset_days: def.offset_days, window_days: def.window_days, sort_order: order,
+          } as any);
+          def.id = created.id;
+        }
+        let itemOrder = 0;
+        for (const item of def.checklistItems) {
+          if (item.deleted) {
+            if (item.id) await this.supabase.deleteChecklistItemDef(item.id);
+            continue;
+          }
+          if (item.name.trim() === '') continue;
+          if (item.id) {
+            await this.supabase.updateChecklistItemDef(item.id, { name: item.name, plazo_horas: item.plazo_horas, sort_order: itemOrder });
+          } else {
+            await this.supabase.createChecklistItemDef({ visit_definition_id: def.id!, name: item.name, plazo_horas: item.plazo_horas, sort_order: itemOrder });
+          }
+          itemOrder++;
+        }
+        order++;
+      }
+      this.exitEditMode();
+    } catch (e: any) {
+      this.editError = e?.message ?? JSON.stringify(e);
+    } finally {
+      this.savingEdit = false;
+      this.cdr.detectChanges();
+    }
   }
 }

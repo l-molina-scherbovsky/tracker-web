@@ -1,0 +1,101 @@
+<div class="page-header">
+  <a routerLink="/protocolos" class="back-btn">
+    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <div class="page-header-text">
+    <h1>Nuevo paciente</h1>
+  </div>
+</div>
+
+@if (error) {
+  <div class="error-state" style="margin-bottom:16px;">
+    <div class="error-title">Error al guardar</div>
+    <div class="error-message">{{ error }}</div>
+  </div>
+}
+
+<div class="panel" style="margin-bottom:16px;">
+  <div class="form-section-title">Datos del paciente</div>
+
+  <div class="form-row">
+    <div class="form-field">
+      <label class="form-label">ID del paciente</label>
+      <input type="text" [(ngModel)]="patientId" placeholder="Ej: P-001" class="form-input" />
+    </div>
+    <div class="form-field" style="flex:2">
+      <label class="form-label">Nombre completo</label>
+      <input type="text" [(ngModel)]="fullName" placeholder="Nombre y apellido" class="form-input" />
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-field">
+      <label class="form-label">Protocolo</label>
+      <select [(ngModel)]="selectedProtocolId" (change)="onProtocolChange()" class="form-select">
+        <option value="">Seleccionar...</option>
+        @for (p of protocols; track p.id) {
+          <option [value]="p.id">{{ p.id }} — {{ p.name }}</option>
+        }
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Coordinador/a</label>
+      <select [(ngModel)]="coordinator" class="form-select">
+        <option value="">Seleccionar...</option>
+        @for (c of coordinators; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Estado</label>
+      <select [(ngModel)]="status" class="form-select">
+        @for (s of statusOptions; track s) {
+          <option [value]="s">{{ s }}</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-field">
+      <label class="form-label">Fecha de inclusión</label>
+      <input type="date" [(ngModel)]="inclusionDate" (change)="onInclusionDateChange()" class="form-input" />
+      <span class="form-hint">Se usa para calcular las fechas estimadas de visita</span>
+    </div>
+  </div>
+</div>
+
+<!-- Preview de visitas -->
+@if (loadingDefs) {
+  <div class="panel" style="padding:20px; text-align:center; color:#9ca3af; font-size:13px;">
+    Cargando visitas del protocolo...
+  </div>
+} @else if (visitPreviews.length > 0) {
+  <div class="panel" style="margin-bottom:16px;">
+    <div class="form-section-title">Calendario de visitas generado</div>
+    @for (preview of visitPreviews; track preview.def.id) {
+      <div class="visit-preview-row">
+        <span class="visit-preview-code">{{ preview.def.visit_code }}</span>
+        <span class="visit-preview-type">{{ preview.def.visit_type === 'VP' ? 'Presencial' : 'Telefónico' }}</span>
+        <span class="visit-preview-date">{{ fmtDate(preview.estimatedDate) }}</span>
+        <span class="visit-preview-window">
+          Ventana: {{ fmtDate(preview.windowStart) }} → {{ fmtDate(preview.windowEnd) }}
+        </span>
+      </div>
+    }
+  </div>
+} @else if (selectedProtocolId && visitDefs.length === 0 && !loadingDefs) {
+  <div class="panel" style="padding:20px; text-align:center; color:#9ca3af; font-size:13px; margin-bottom:16px;">
+    Este protocolo no tiene visitas definidas.
+  </div>
+}
+
+<div style="display:flex; gap:10px; justify-content:flex-end;">
+  <a routerLink="/protocolos" class="form-cancel-btn">Cancelar</a>
+  <button class="form-save-btn" (click)="save()" [disabled]="!canSave() || saving">
+    {{ saving ? 'Guardando...' : 'Crear paciente' }}
+  </button>
+</div>

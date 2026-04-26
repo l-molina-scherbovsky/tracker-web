@@ -14,19 +14,25 @@
       <h1>Protocolos</h1>
       <p class="subtitle">{{ cards().length }} protocolos</p>
     </div>
+    <a routerLink="/protocolos/nuevo" class="btn-nuevo-protocolo">+ Nuevo protocolo</a>
   </div>
 
   <div class="protocols-grid">
     @for (card of cards(); track card.protocol.id) {
-      <a [routerLink]="['/protocol', card.protocol.id]" class="protocol-card">
+      <div [routerLink]="['/protocol', card.protocol.id]" class="protocol-card">
 
         <div class="protocol-card-header">
           <span class="protocol-card-name">{{ card.protocol.name || card.protocol.id }}</span>
-          <span class="status-badge"
-            [class.activo]="card.status !== 'Cerrado'"
-            [class.falla]="card.status === 'Cerrado'">
-            {{ card.status }}
-          </span>
+          <div class="protocol-card-header-actions">
+            <span class="status-badge"
+              [class.activo]="card.status !== 'Cerrado'"
+              [class.falla]="card.status === 'Cerrado'">
+              {{ card.status }}
+            </span>
+            <a [routerLink]="['/protocolos', card.protocol.id, 'editar']"
+               (click)="$event.stopPropagation()"
+               class="protocol-card-edit-btn">✏️</a>
+          </div>
         </div>
 
         <div class="protocol-card-stats">
@@ -44,7 +50,7 @@
           </div>
         </div>
 
-      </a>
+      </div>
     }
   </div>
 
