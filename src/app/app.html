@@ -3,8 +3,7 @@
   <!-- Sidebar fijo -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <p class="sidebar-logo-name">Fundación<br>Scherbovsky</p>
-      <p class="sidebar-logo-sub">Seguimiento clínico</p>
+      <img src="assets/logo-scherbovsky.png" alt="Fundación Scherbovsky" class="sidebar-logo-img">
     </div>
     <nav class="sidebar-nav">
       <a routerLink="/"
@@ -18,26 +17,40 @@
         Dashboard
       </a>
 
-      <a routerLink="/protocolos"
-         routerLinkActive="active"
-         class="sidebar-nav-item">
-        <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        Protocolos
-      </a>
+      <div class="sidebar-protocols-header">
+        <a routerLink="/protocolos"
+           routerLinkActive="active"
+           class="sidebar-nav-item sidebar-protocols-link">
+          <svg class="sidebar-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Protocolos
+        </a>
+        @if (showProtocolSubItems()) {
+          <button class="sidebar-collapse-btn" (click)="protocolsExpanded.set(!protocolsExpanded())">
+            <svg class="sidebar-collapse-icon" [class.collapsed]="!protocolsExpanded()"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+        }
+      </div>
 
       <!-- Sub-ítems de protocolos -->
-      @for (p of protocols(); track p.id) {
-        <a [routerLink]="['/protocol', p.id]"
-           routerLinkActive="active"
-           class="sidebar-sub-item">
-          {{ p.id }}
-        </a>
-      }
-      @if (protocols().length > 0) {
-        <a routerLink="/protocolos" class="sidebar-sub-item sidebar-sub-ver-todos">Ver todos →</a>
+      @if (showProtocolSubItems() && protocolsExpanded()) {
+        @for (p of (showAllProtocols() ? protocols() : protocols().slice(0, 3)); track p.id) {
+          <a [routerLink]="['/protocol', p.id]"
+             routerLinkActive="active"
+             class="sidebar-sub-item">
+            {{ p.id }}
+          </a>
+        }
+        @if (!showAllProtocols() && protocols().length > 3) {
+          <button class="sidebar-sub-item sidebar-sub-ver-todos" (click)="showAllProtocols.set(true)">
+            Ver todos ({{ protocols().length }}) →
+          </button>
+        }
       }
 
       <a routerLink="/mis-pacientes"

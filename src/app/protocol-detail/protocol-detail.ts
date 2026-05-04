@@ -67,6 +67,14 @@ export class ProtocolDetail implements OnInit {
   savingEdit = false;
   editError = '';
 
+  // Add/range form state (Tab 2)
+  newVisitType = 'VP';
+  showRangeForm = false;
+  rangeType = 'VP';
+  rangeStart = 0;
+  rangeEnd = 90;
+  rangeInterval = 30;
+
   // Template panels (Tab 3)
   templatePanels: TemplatePanel[] = [];
   loadingTemplates = false;
@@ -248,7 +256,7 @@ export class ProtocolDetail implements OnInit {
     this.cdr.detectChanges();
   }
 
-  async addVisitDef(visitType: string = 'VP') {
+  async addVisitDef(visitType: string = 'VP', offsetDays: number = 0) {
     const dbType = this.toDbVisitType(visitType); // 'presencial' | 'telefonica'
     let preItems: EditChecklistItem[] = [];
 
@@ -277,13 +285,22 @@ export class ProtocolDetail implements OnInit {
     const visitCode = `V${this.editVisitDefs.filter(d => !d.deleted).length + 1}`;
     this.editVisitDefs.push({
       visit_code: visitCode,
-      visit_type: visitType, offset_days: 0, window_days: 7,
+      visit_type: visitType, offset_days: offsetDays, window_days: 7,
       sort_order: this.editVisitDefs.length,
       expanded: true, deleted: false,
       checklistItems: preItems,
       loadingChecklist: false,
     });
     console.log('Visita nueva creada con ítems:', visitCode, preItems.length);
+    this.cdr.detectChanges();
+  }
+
+  async generateRangeVisitDefs() {
+    const step = Math.max(1, this.rangeInterval);
+    for (let day = this.rangeStart; day <= this.rangeEnd; day += step) {
+      await this.addVisitDef(this.rangeType, day);
+    }
+    this.showRangeForm = false;
     this.cdr.detectChanges();
   }
 

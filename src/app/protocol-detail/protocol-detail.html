@@ -150,7 +150,47 @@
             </div>
           }
         }
-        <button class="add-visit-btn" (click)="addVisitDef()">+ Agregar visita</button>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:4px;">
+          <select [(ngModel)]="newVisitType" class="filter-select">
+            @for (opt of visitTypeOptions; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+          <button class="add-visit-btn" (click)="addVisitDef(newVisitType)">+ Agregar visita individual</button>
+          <button class="add-visit-btn" (click)="showRangeForm = !showRangeForm">+ Generar rango de visitas</button>
+        </div>
+
+        @if (showRangeForm) {
+          <div style="margin-top:10px; padding:12px 14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+            <div style="font-size:12px; font-weight:600; color:#374151; margin-bottom:10px;">Generar rango de visitas</div>
+            <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <label style="font-size:11px; color:#6b7280;">Tipo</label>
+                <select [(ngModel)]="rangeType" class="filter-select">
+                  @for (opt of visitTypeOptions; track opt.value) {
+                    <option [value]="opt.value">{{ opt.label }}</option>
+                  }
+                </select>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <label style="font-size:11px; color:#6b7280;">Día inicio</label>
+                <input type="number" [(ngModel)]="rangeStart" min="0" class="edit-num-input" style="width:64px;" />
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <label style="font-size:11px; color:#6b7280;">Día fin</label>
+                <input type="number" [(ngModel)]="rangeEnd" min="0" class="edit-num-input" style="width:64px;" />
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <label style="font-size:11px; color:#6b7280;">Cada (días)</label>
+                <input type="number" [(ngModel)]="rangeInterval" min="1" class="edit-num-input" style="width:64px;" />
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button class="form-save-btn" style="font-size:12px; padding:5px 14px;" (click)="generateRangeVisitDefs()">Generar</button>
+                <button class="edit-remove-btn" (click)="showRangeForm = false">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        }
       }
     </div>
   }
